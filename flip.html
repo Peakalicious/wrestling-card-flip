@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wrestling Prompt Cards – Mini‑Game</title>
+  <style>
+    :root {
+      --bg:#0f1117;            /* desk background */
+      --surface:#151925;       /* panels */
+      --muted:#8b95b7;
+      --accent:#6ea8fe;
+      --accent-2:#a07bff;
+      --good:#3ddc97;
+      --warn:#ffb703;
+      --danger:#ef476f;
+
+      --card-w: 220px;
+      --card-h: 320px;
+      --radius: 16px;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --shadow-2: 0 6px 16px rgba(0,0,0,.45);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(1200px 800px at 65% 30%, rgba(110,168,254,.07), transparent 60%),
+        radial-gradient(900px 700px at 30% 80%, rgba(160,123,255,.06), transparent 60%),
+        var(--bg);
+      color: white;
+      font: 500 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 18px;
+      height: 100%;
+      padding: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .sidebar {
+      display: grid;
+      grid-auto-rows: min-content;
+      gap: 14px;
+      overflow: auto;
+    }
+
+    .row { display: grid; gap: 10px; }
+    .row.two { grid-template-columns: 1fr 1fr; align-items: center; gap: 10px; }
+
+    h1 { font-size: 18px; margin: 0 0 8px 0; color: #e6ebff; }
+    h2 { font-size: 14px; margin: 8px 0; color: #c8d0f8; opacity: .9; }
+    p, label, small { color: #c1c7e2; }
+
+    .btn {
+      background: linear-gradient(180deg, rgba(110,168,254,.2), rgba(160,123,255,.18));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: #e9edff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
+      box-shadow: var(--shadow-2);
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn.secondary {
+      background: rgba(255,255,255,.06);
+    }
+    .btn.danger { background: rgba(239,71,111,.18); }
+
+    .stat {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 12px;
+    }
+
+    .badge {
+      font-size: 12px; padding: 4px 8px; border-radius: 999px;
+      background: rgba(110,168,254,.22); color: #e7efff; border: 1px solid rgba(110,168,254,.35);
+    }
+
+    /* Desk */
+    .desk {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(600px 500px at 30% 20%, rgba(110,168,254,.07), transparent 60%),
+        radial-gradient(600px 600px at 80% 70%, rgba(160,123,255,.07), transparent 60%),
+        #0c0f16;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.06);
+      box-shadow: inset 0 30px 80px rgba(0,0,0,.35);
+    }
+
+    .desk .hint {
+      position: absolute; inset: 12px auto auto 12px; opacity: .7; font-size: 13px;
+      color: #cbd3ff;
+    }
+
+    /* Decks */
+    .decks {
+      display: grid; gap: 12px;
+    }
+
+    .deck {
+      display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+      padding: 10px; border-radius: 14px; border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      cursor: pointer;
+    }
+    .deck:hover { background: rgba(255,255,255,.06); }
+
+    .deck .pile {
+      width: 36px; height: 52px; border-radius: 8px;
+      background: linear-gradient(135deg, rgba(110,168,254,.5), rgba(160,123,255,.5));
+      border: 1px solid rgba(255,255,255,.35);
+      box-shadow: 0 4px 10px rgba(0,0,0,.35);
+    }
+
+    .deck.temp .pile {
+      background: linear-gradient(135deg, rgba(61,220,151,.45), rgba(110,168,254,.45));
+    }
+
+    .deck .meta { display: grid; }
+    .deck .meta small { opacity: .8; }
+
+    /* Cards on desk */
+    .card {
+      position: absolute; width: var(--card-w); height: var(--card-h);
+      transform-origin: 50% 50%;
+      border-radius: var(--radius);
+      perspective: 1000px;
+      box-shadow: var(--shadow);
+      will-change: transform;
+      touch-action: none;
+    }
+
+    .card .inner {
+      position: absolute; inset: 0; border-radius: inherit;
+      transition: transform .5s ease;
+      transform-style: preserve-3d;
+    }
+
+    .card.flipped .inner { transform: rotateY(180deg); }
+
+    .face, .back {
+      position: absolute; inset: 0; border-radius: inherit;
+      -webkit-backface-visibility: hidden; backface-visibility: hidden;
+      display: grid; place-items: center; padding: 16px; text-align: center;
+      border: 1px solid rgba(255,255,255,.22);
+    }
+
+    .face {
+      background: radial-gradient(120% 120% at 10% 10%, rgba(255,255,255,.08), rgba(255,255,255,.02)),
+                  linear-gradient(160deg, rgba(110,168,254,.18), rgba(160,123,255,.18));
+    }
+
+    .back {
+      transform: rotateY(180deg);
+      background:
+        repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 10px, rgba(255,255,255,.03) 10px 20px),
+        radial-gradient(120% 120% at 10% 10%, rgba(255,255,255,.07), rgba(255,255,255,.02));
+    }
+
+    .tag {
+      position: absolute; top: 10px; right: 10px; font-size: 12px; padding: 4px 8px; border-radius: 999px;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+    }
+
+    .text { font-size: 18px; line-height: 1.2; color: #f4f6ff; }
+
+    .toolbar {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+
+    textarea {
+      width: 100%; min-height: 90px; resize: vertical; border-radius: 12px; padding: 10px;
+      background: rgba(255,255,255,.04); color: #e9edff; border: 1px solid rgba(255,255,255,.12);
+      font: inherit;
+    }
+
+    .hr { height: 1px; background: rgba(255,255,255,.08); margin: 6px 0; }
+
+    .note { font-size: 12px; opacity: .85; }
+
+    .toast {
+      position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
+      background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.15); border-radius: 999px;
+      padding: 8px 12px; color: #fff; pointer-events: none; opacity: 0; transition: opacity .2s ease;
+    }
+
+    .show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar panel" id="sidebar">
+      <h1>Wrestling Prompt Cards</h1>
+      <p>Click a deck to deal cards onto the desk. Max <strong>3 Permanent</strong> & <strong>5 Temporary</strong>. Click a card to flip it. Drag to rearrange.</p>
+
+      <div class="decks">
+        <div class="deck perm" id="permDeck">
+          <div class="pile"></div>
+          <div class="meta">
+            <strong>Permanent Deck</strong>
+            <small><span id="permRemain">0</span> in deck · draw limit: 3</small>
+          </div>
+          <span class="badge" id="permDrawn">0 on desk</span>
+        </div>
+
+        <div class="deck temp" id="tempDeck">
+          <div class="pile"></div>
+          <div class="meta">
+            <strong>Temporary Deck</strong>
+            <small><span id="tempRemain">0</span> in deck · draw limit: 5</small>
+          </div>
+          <span class="badge" id="tempDrawn">0 on desk</span>
+        </div>
+      </div>
+
+      <div class="row two">
+        <button class="btn" id="dealToLimit">Deal to Limits</button>
+        <button class="btn secondary" id="shuffleAll">Shuffle</button>
+      </div>
+
+      <div class="row two">
+        <button class="btn secondary" id="clearDesk">Clear Desk</button>
+        <button class="btn danger" id="resetAll">Hard Reset</button>
+      </div>
+
+      <div class="hr"></div>
+      <h2>Swap / Edit Temporary Deck</h2>
+      <p class="note">Paste newline‑separated prompts below and click <em>Replace Temp Deck</em>. Your list is saved to local storage.</p>
+      <textarea id="tempEditor" placeholder="One prompt per line…"></textarea>
+      <div class="row two">
+        <button class="btn" id="replaceTemp">Replace Temp Deck</button>
+        <button class="btn secondary" id="loadExample">Load Example</button>
+      </div>
+
+      <div class="hr"></div>
+      <h2>Export / Import</h2>
+      <div class="row two">
+        <button class="btn secondary" id="exportState">Export State</button>
+        <button class="btn secondary" id="importState">Import State</button>
+      </div>
+    </aside>
+
+    <!-- Desk -->
+    <main class="desk panel" id="desk">
+      <div class="hint">🃏 Tip: Double‑click a card to duplicate; Shift‑click to delete.</div>
+      <div class="toast" id="toast"></div>
+    </main>
+  </div>
+
+  <script>
+    // ======================
+    // Data: Edit your prompts here
+    // ======================
+    const DEFAULT_PERMANENT_PROMPTS = [
+      "Signature Move: Create a finisher name and describe the setup.",
+      "Tag Team Chemistry: Explain how your duo complements each other.",
+      "Entrance Persona: Music, pose, pyro—set the vibe.",
+      "Gimmick Lock‑in: Choose a defining trait you must roleplay all game.",
+      "Manager Strategy: How does your manager help you cheat legally?",
+      "Promo Catchphrase: The line you’ll repeat every segment.",
+      "Submission Specialist: You must win by tapout—name the hold.",
+      "Rule of Three: You have 3 spots this show—what are they?"
+    ];
+
+    const DEFAULT_TEMPORARY_PROMPTS = [
+      "Open Challenge: Call out anyone backstage.",
+      "Foreign Object: You find something under the ring—what is it?",
+      "Crowd Pop: Start a chant that turns the tide.",
+      "Run‑In: An ally or rival interrupts—why?",
+      "Ref Bump: The referee is down—what happens?",
+      "No DQ Stipulation: Add a legal weapon to the match.",
+      "Tables! Tables! Tables! Describe the spot.",
+      "Heel Turn Tease: Do you commit, or swerve the audience?",
+      "Surprise Roll‑Up: How do you steal a win?",
+      "Medical Spot: Sell an injury—what’s the story?"
+    ];
+
+    // Limits
+    const LIMITS = { perm: 3, temp: 5 };
+
+    // State
+    const state = {
+      seed: Date.now(),
+      permDeck: [],
+      tempDeck: [],
+      desk: [], // {id,type,text,x,y,rot,flipped}
+      drawnCounts: { perm: 0, temp: 0 }
+    };
+
+    // ---------- Utilities ----------
+    const rand = (min, max) => Math.random() * (max - min) + min;
+    const shuffle = (arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    };
+
+    const uid = () => Math.random().toString(36).slice(2, 9);
+
+    const save = () => {
+      localStorage.setItem('wrestleCardsState', JSON.stringify(state));
+    };
+
+    const load = () => {
+      const raw = localStorage.getItem('wrestleCardsState');
+      if (!raw) return false;
+      try {
+        const s = JSON.parse(raw);
+        Object.assign(state, s);
+        return true;
+      } catch { return false; }
+    };
+
+    const toast = (msg, t = 1400) => {
+      const el = document.getElementById('toast');
+      el.textContent = msg; el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), t);
+    };
+
+    // ---------- Deck management ----------
+    function resetDecks({ hard=false }={}) {
+      // On hard reset, restore defaults
+      if (hard) {
+        state.permDeck = [...DEFAULT_PERMANENT_PROMPTS];
+        const savedTemp = JSON.parse(localStorage.getItem('wrestleTempDeck')||'null');
+        state.tempDeck = Array.isArray(savedTemp) && savedTemp.length ? savedTemp : [...DEFAULT_TEMPORARY_PROMPTS];
+        state.desk = []; state.drawnCounts = { perm: 0, temp: 0 };
+      }
+      // Shuffle decks in place
+      shuffle(state.permDeck);
+      shuffle(state.tempDeck);
+      save();
+      renderAll();
+    }
+
+    function setTempDeck(list) {
+      const trimmed = list.map(s => s.trim()).filter(Boolean);
+      localStorage.setItem('wrestleTempDeck', JSON.stringify(trimmed));
+      state.tempDeck = [...trimmed];
+      shuffle(state.tempDeck);
+      state.drawnCounts.temp = 0;
+      save();
+      renderAll();
+    }
+
+    // ---------- Rendering ----------
+    const deskEl = document.getElementById('desk');
+
+    function renderCounts() {
+      document.getElementById('permRemain').textContent = state.permDeck.length;
+      document.getElementById('tempRemain').textContent = state.tempDeck.length;
+      document.getElementById('permDrawn').textContent = `${state.drawnCounts.perm} on desk`;
+      document.getElementById('tempDrawn').textContent = `${state.drawnCounts.temp} on desk`;
+    }
+
+    function renderDesk() {
+      // Clear existing cards
+      [...deskEl.querySelectorAll('.card')].forEach(n => n.remove());
+      state.desk.forEach(c => addCardElement(c));
+    }
+
+    function renderAll() { renderCounts(); renderDesk(); }
+
+    // ---------- Card creation & interactions ----------
+    function createCard({ type, text }) {
+      const x = rand(140, deskEl.clientWidth - 260);
+      const y = rand(60, deskEl.clientHeight - 380);
+      return { id: uid(), type, text, x, y, rot: rand(-6, 6), flipped: false };
+    }
+
+    function addCardElement(card) {
+      const el = document.createElement('div');
+      el.className = 'card' + (card.flipped ? ' flipped' : '');
+      el.style.left = `${card.x}px`;
+      el.style.top = `${card.y}px`;
+      el.style.transform = `rotate(${card.rot}deg)`;
+      el.dataset.id = card.id;
+
+      const inner = document.createElement('div');
+      inner.className = 'inner';
+
+      const face = document.createElement('div');
+      face.className = 'face';
+      const label = document.createElement('div');
+      label.className = 'tag';
+      label.textContent = card.type === 'perm' ? 'Permanent' : 'Temporary';
+      face.appendChild(label);
+      const text = document.createElement('div');
+      text.className = 'text';
+      text.textContent = card.text;
+      face.appendChild(text);
+
+      const back = document.createElement('div');
+      back.className = 'back';
+
+      inner.appendChild(face);
+      inner.appendChild(back);
+      el.appendChild(inner);
+
+      // Events
+      el.addEventListener('click', (e) => {
+        if (e.shiftKey) { // delete
+          deleteCard(card.id);
+          return;
+        }
+        el.classList.toggle('flipped');
+        const c = state.desk.find(x => x.id === card.id);
+        if (c) { c.flipped = !c.flipped; save(); }
+      });
+
+      el.addEventListener('dblclick', () => duplicateCard(card.id));
+
+      makeDraggable(el, card.id);
+
+      deskEl.appendChild(el);
+    }
+
+    function deleteCard(id) {
+      const idx = state.desk.findIndex(c => c.id === id);
+      if (idx === -1) return;
+      const type = state.desk[idx].type;
+      state.desk.splice(idx,1);
+      state.drawnCounts[type] = Math.max(0, state.drawnCounts[type]-1);
+      save(); renderAll();
+    }
+
+    function duplicateCard(id) {
+      const src = state.desk.find(c => c.id === id);
+      if (!src) return;
+      const dup = { ...createCard({ type: src.type, text: src.text }), flipped: src.flipped };
+      state.desk.push(dup);
+      state.drawnCounts[src.type]++;
+      save(); renderAll();
+    }
+
+    function makeDraggable(node, id) {
+      let startX=0, startY=0, baseX=0, baseY=0;
+      const onDown = (e) => {
+        node.setPointerCapture(e.pointerId);
+        startX = e.clientX; startY = e.clientY;
+        baseX = parseFloat(node.style.left||0);
+        baseY = parseFloat(node.style.top||0);
+      };
+      const onMove = (e) => {
+        if (!node.hasPointerCapture(e.pointerId)) return;
+        const dx = e.clientX - startX; const dy = e.clientY - startY;
+        const nx = Math.min(Math.max(baseX + dx, 6), deskEl.clientWidth - node.clientWidth - 6);
+        const ny = Math.min(Math.max(baseY + dy, 6), deskEl.clientHeight - node.clientHeight - 6);
+        node.style.left = nx + 'px';
+        node.style.top = ny + 'px';
+      };
+      const onUp = (e) => {
+        if (!node.hasPointerCapture(e.pointerId)) return;
+        node.releasePointerCapture(e.pointerId);
+        const c = state.desk.find(c => c.id === id);
+        if (c) { c.x = parseFloat(node.style.left); c.y = parseFloat(node.style.top); save(); }
+      };
+      node.addEventListener('pointerdown', onDown);
+      node.addEventListener('pointermove', onMove);
+      node.addEventListener('pointerup', onUp);
+    }
+
+    // ---------- Drawing logic ----------
+    function drawOne(type) {
+      const isPerm = type === 'perm';
+      const limit = isPerm ? LIMITS.perm : LIMITS.temp;
+      const drawn = state.drawnCounts[type];
+      if (drawn >= limit) { toast(`You already have ${limit} ${isPerm? 'permanent':'temporary'} cards.`); return false; }
+      const deck = isPerm ? state.permDeck : state.tempDeck;
+      if (!deck.length) { toast('Deck is empty.'); return false; }
+      const text = deck.pop();
+      const card = createCard({ type, text });
+      state.desk.push(card);
+      state.drawnCounts[type]++;
+      save(); renderAll();
+      return true;
+    }
+
+    function dealToLimits() {
+      let progressed = false;
+      while (state.drawnCounts.perm < LIMITS.perm && state.permDeck.length) { progressed = drawOne('perm') || progressed; }
+      while (state.drawnCounts.temp < LIMITS.temp && state.tempDeck.length) { progressed = drawOne('temp') || progressed; }
+      if (!progressed) toast('Nothing to deal. Maybe you hit the limits or decks are empty.');
+    }
+
+    function shuffleAll() {
+      shuffle(state.permDeck); shuffle(state.tempDeck);
+      toast('Shuffled remaining decks.');
+      save(); renderCounts();
+    }
+
+    function clearDesk() {
+      state.desk = []; state.drawnCounts = { perm: 0, temp: 0 };
+      toast('Cleared the desk.');
+      save(); renderAll();
+    }
+
+    function hardReset() {
+      localStorage.removeItem('wrestleCardsState');
+      resetDecks({ hard: true });
+      toast('Hard reset complete. Default decks restored.');
+    }
+
+    // ---------- Export / Import ----------
+    function exportState() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'wrestling_cards_state.json'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function importState() {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'application/json';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const s = JSON.parse(reader.result);
+            Object.assign(state, s);
+            save(); renderAll(); toast('State imported.');
+          } catch(e){ toast('Invalid file.'); }
+        };
+        reader.readAsText(file);
+      });
+      input.click();
+    }
+
+    // ---------- Wiring ----------
+    document.getElementById('permDeck').addEventListener('click', () => drawOne('perm'));
+    document.getElementById('tempDeck').addEventListener('click', () => drawOne('temp'));
+
+    document.getElementById('dealToLimit').addEventListener('click', dealToLimits);
+    document.getElementById('shuffleAll').addEventListener('click', shuffleAll);
+    document.getElementById('clearDesk').addEventListener('click', clearDesk);
+    document.getElementById('resetAll').addEventListener('click', hardReset);
+    document.getElementById('exportState').addEventListener('click', exportState);
+    document.getElementById('importState').addEventListener('click', importState);
+
+    document.getElementById('replaceTemp').addEventListener('click', () => {
+      const lines = document.getElementById('tempEditor').value.split(/\n+/);
+      if (!lines.some(Boolean)) { toast('Paste some prompts first.'); return; }
+      setTempDeck(lines);
+      toast('Temporary deck replaced.');
+    });
+
+    document.getElementById('loadExample').addEventListener('click', () => {
+      document.getElementById('tempEditor').value = DEFAULT_TEMPORARY_PROMPTS.join('\n');
+      toast('Example loaded below. Click Replace Temp Deck to apply.');
+    });
+
+    // ---------- Init ----------
+    function init() {
+      const had = load();
+      if (!had) {
+        state.permDeck = [...DEFAULT_PERMANENT_PROMPTS];
+        const savedTemp = JSON.parse(localStorage.getItem('wrestleTempDeck')||'null');
+        state.tempDeck = Array.isArray(savedTemp) && savedTemp.length ? savedTemp : [...DEFAULT_TEMPORARY_PROMPTS];
+        shuffle(state.permDeck); shuffle(state.tempDeck);
+        save();
+      }
+      // Pre‑fill editor with current temp deck
+      document.getElementById('tempEditor').value = state.tempDeck.join('\n');
+      renderAll();
+      // Resize observer to keep cards inside bounds on window resize
+      new ResizeObserver(() => { renderDesk(); }).observe(deskEl);
+    }
+
+    init();
+  </script>
+</body>
+</html>
